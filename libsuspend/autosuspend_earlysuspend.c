@@ -28,6 +28,7 @@
 #include <cutils/log.h>
 
 #include "autosuspend_ops.h"
+#include "powerbuttond.h"
 
 #define EARLYSUSPEND_WAIT_FOR_FB_SLEEP "/sys/power/wait_for_fb_sleep"
 #define EARLYSUSPEND_WAIT_FOR_FB_WAKE "/sys/power/wait_for_fb_wake"
@@ -101,6 +102,7 @@ static void *earlysuspend_thread_func(void __unused *arg)
         earlysuspend_state = EARLYSUSPEND_MEM;
         pthread_cond_signal(&earlysuspend_cond);
         pthread_mutex_unlock(&earlysuspend_mutex);
+        ALOGI("Sleeping, setting earlysuspend_state to EARLYSUSPEND_MEM");
 
         if (wait_for_fb_wake()) {
             ALOGE("Failed reading wait_for_fb_wake, exiting earlysuspend thread");
@@ -110,8 +112,27 @@ static void *earlysuspend_thread_func(void __unused *arg)
         earlysuspend_state = EARLYSUSPEND_ON;
         pthread_cond_signal(&earlysuspend_cond);
         pthread_mutex_unlock(&earlysuspend_mutex);
+        ALOGI("Waking, setting earlysuspend_state to EARLYSUSPEND_ON");
     }
 }
+
+static void *wake_screen_thread_func(void __unused *arg){
+	sleep(2);
+	send_key_left_meta_ext();
+	ALOGI("screen wake thread executed");
+	return NULL;
+}
+
+static void wake_screen(){
+	static pthread_t wake_screen_thread;
+	int ret = pthread_create(&wake_screen_thread, NULL, wake_screen_thread_func, NULL);
+	if (ret) {
+		ALOGE("screen wake thread creation failure");
+	}
+	ALOGI("screen wake thread created");
+	pthread_detach(wake_screen_thread);
+}
+
 static int autosuspend_earlysuspend_enable(void)
 {
     int ret;
@@ -134,7 +155,7 @@ static int autosuspend_earlysuspend_enable(void)
     }
 
     ALOGD("autosuspend_earlysuspend_enable done");
-
+	wake_screen();
     return 0;
 }
 
@@ -160,7 +181,6 @@ static int autosuspend_earlysuspend_disable(void)
     }
 
     ALOGD("autosuspend_earlysuspend_disable done");
-
     return 0;
 }
 
@@ -211,6 +231,7 @@ struct autosuspend_ops *autosuspend_earlysuspend_init(void)
     ALOGI("Selected early suspend");
 
     start_earlysuspend_thread();
+    init_android_power_button();
 
     return &autosuspend_earlysuspend_ops;
 }

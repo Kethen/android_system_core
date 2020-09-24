@@ -7,6 +7,7 @@ libsuspend_src_files := \
 	autosuspend_autosleep.c \
 	autosuspend_earlysuspend.c \
 	autosuspend_wakeup_count.c \
+	powerbuttond.c \
 
 libsuspend_libraries := \
 	liblog libcutils
